@@ -9,17 +9,24 @@ import { AiTip, ChatMessage } from '../models/aiTip';
 // Configure axios instance
 const axiosInstance = axios.create({
   baseURL: 'http://localhost:5000/api',
-  withCredentials: true
+  headers: {
+    'Content-Type': 'application/json'
+  }
 });
 
-// Auth interceptor to handle tokens
-axiosInstance.interceptors.request.use((config) => {
-  const token = localStorage.getItem('finWiseToken');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+// Add request interceptor to handle auth token
+axiosInstance.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('finWiseToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-  return config;
-});
+);
 
 // Export the complete API object
 export const api = {
@@ -28,9 +35,15 @@ export const api = {
     try {
       const response = await axiosInstance.post('/auth/login', { email, password });
       const { token, user } = response.data;
-      localStorage.setItem('finWiseToken', token);
+      // Make sure token is being stored
+      if (token) {
+        localStorage.setItem('finWiseToken', token);
+        // Set token in axios defaults
+        axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      }
       return user;
     } catch (error: any) {
+      console.error('Login error:', error);
       throw new Error(error.response?.data?.error || 'Login failed');
     }
   },
@@ -59,17 +72,25 @@ export const api = {
   getTransactions: async (): Promise<Transaction[]> => {
     try {
       const response = await axiosInstance.get('/user/transactions');
-      return response.data;
+      return response.data.map((transaction: any) => ({
+        ...transaction,
+        date: new Date(transaction.date),
+        createdAt: new Date(transaction.createdAt)
+      }));
     } catch (error) {
       console.error('Failed to fetch transactions:', error);
-      return [];
+      throw error;
     }
   },
 
   addTransaction: async (transaction: Partial<Transaction>): Promise<Transaction> => {
     try {
       const response = await axiosInstance.post('/user/transactions', transaction);
-      return response.data;
+      return {
+        ...response.data,
+        date: new Date(response.data.date),
+        createdAt: new Date(response.data.createdAt)
+      };
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Failed to add transaction');
     }
@@ -82,7 +103,7 @@ export const api = {
       return response.data;
     } catch (error) {
       console.error('Failed to fetch budgets:', error);
-      return [];
+      throw error;
     }
   },
 
@@ -109,8 +130,15 @@ export const api = {
   createSavingsGoal: async (goal: Partial<SavingsGoal>): Promise<SavingsGoal> => {
     try {
       const response = await axiosInstance.post('/user/goals', goal);
-      return response.data;
+      // Transform dates from ISO strings to Date objects
+      return {
+        ...response.data,
+        createdAt: new Date(response.data.createdAt),
+        updatedAt: new Date(response.data.updatedAt),
+        deadline: response.data.deadline ? new Date(response.data.deadline) : undefined
+      };
     } catch (error: any) {
+      console.error('API Error:', error.response?.data || error.message);
       throw new Error(error.response?.data?.error || 'Failed to create goal');
     }
   },
@@ -147,32 +175,33 @@ export const api = {
 
   getChatHistory: async (): Promise<ChatMessage[]> => {
     try {
-      // Return dummy data temporarily until backend is ready
-      return [
-        {
-          id: 'msg1',
-          content: 'Welcome to FinWise! How can I help you today?',
-          sender: 'ai',
-          timestamp: new Date()
-        }
-      ];
-    } catch (error) {
-      console.error('Failed to fetch chat history:', error);
-      return [];
+      const response = await axiosInstance.get('/user/chat/history');
+      return response.data.map((msg: any) => ({
+        ...msg,
+        timestamp: new Date(msg.timestamp)
+      }));
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error || 'Failed to fetch chat history');
     }
   },
 
-  sendChatMessage: async (content: string): Promise<ChatMessage> => {
+  sendChatMessage: async (message: string): Promise<{ userMessage: ChatMessage, aiResponse: ChatMessage }> => {
     try {
-      // Return dummy response temporarily until backend is ready
+      const response = await axiosInstance.post('/user/chat', { message });
       return {
-        id: `msg-${Date.now()}`,
-        content,
-        sender: 'user',
-        timestamp: new Date()
+        userMessage: {
+          ...response.data.userMessage,
+          timestamp: new Date(response.data.userMessage.timestamp)
+        },
+        aiResponse: {
+          ...response.data.aiResponse,
+          timestamp: new Date(response.data.aiResponse.timestamp)
+        }
       };
     } catch (error: any) {
       throw new Error(error.response?.data?.error || 'Failed to send message');
     }
-  }
+  },
+
+  
 };

@@ -2,7 +2,15 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 
+// Import all routes
 const authRoutes = require("./routes/authRoutes");
+const goalRoutes = require('./routes/goalRoutes');
+const transactionRoutes = require('./routes/transactionRoutes');
+const budgetRoutes = require('./routes/budgetRoutes');
+const aiChatRoutes = require('./routes/aiChatRoutes');
+const aiRoutes = require('./routes/aiRoutes');
+const userRoutes = require('./routes/userRoutes');
+const geminiRoutes = require('./routes/gemini');
 
 const app = express();
 
@@ -13,8 +21,22 @@ app.use(cors({
 
 app.use(express.json());
 
-// Use only auth routes for now
+// Fixed route declarations
 app.use('/api/auth', authRoutes);
+app.use('/api/user', userRoutes);
+app.use('/api/user', goalRoutes);
+app.use('/api/user', transactionRoutes);
+app.use('/api/user', budgetRoutes);
+app.use('/api/user', aiChatRoutes);
+app.use('/api/user', aiRoutes);
+
+// Mount routes AFTER middleware
+app.use('/api/ai', geminiRoutes);
+
+// Health check route
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {

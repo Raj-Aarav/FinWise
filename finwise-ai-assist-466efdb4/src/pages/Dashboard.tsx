@@ -16,13 +16,35 @@ export default function Dashboard() {
   const { user } = useAuth();
   const { 
     transactions, 
-    budgetSummary, 
+    budgets,
     savingsGoals, 
     aiTips,
     isLoading,
     refreshData
   } = useFinance();
   
+  // Calculate total balance from transactions
+  const totalBalance = transactions.reduce((total, t) => 
+    total + (t.isIncome ? t.amount : -t.amount), 0
+  );
+
+  // Calculate monthly income and spending
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  const monthlyTransactions = transactions.filter(t => {
+    const transactionDate = new Date(t.date);
+    return transactionDate.getMonth() === currentMonth && 
+           transactionDate.getFullYear() === currentYear;
+  });
+
+  const monthlyIncome = monthlyTransactions
+    .filter(t => t.isIncome)
+    .reduce((total, t) => total + t.amount, 0);
+
+  const monthlySpending = monthlyTransactions
+    .filter(t => !t.isIncome)
+    .reduce((total, t) => total + t.amount, 0);
+
   // Get recent transactions (last 5)
   const recentTransactions = [...transactions]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -52,7 +74,7 @@ export default function Dashboard() {
               <Skeleton className="h-8 w-24" />
             ) : (
               <CardTitle className="text-2xl bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-                {formatCurrency(12345.67)}
+                {formatCurrency(totalBalance)}
               </CardTitle>
             )}
           </CardHeader>
@@ -66,7 +88,7 @@ export default function Dashboard() {
               <Skeleton className="h-8 w-24" />
             ) : (
               <CardTitle className="text-2xl bg-gradient-to-r from-green-500 to-green-700 bg-clip-text text-transparent">
-                {formatCurrency(4500)}
+                {formatCurrency(monthlyIncome)}
               </CardTitle>
             )}
           </CardHeader>
@@ -80,13 +102,13 @@ export default function Dashboard() {
               <Skeleton className="h-8 w-24" />
             ) : (
               <CardTitle className="text-2xl bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
-                {formatCurrency(budgetSummary?.totalSpent || 0)}
+                {formatCurrency(monthlySpending)}
               </CardTitle>
             )}
           </CardHeader>
         </Card>
       </div>
-      
+
       {/* Budget overview */}
       <div className="mb-8 animate-slide-in-bottom" style={{ animationDelay: '0.2s' }}>
         <div className="flex justify-between items-center mb-4">
@@ -107,7 +129,7 @@ export default function Dashboard() {
           </div>
         ) : (
           <div>
-            {budgetSummary?.categories.slice(0, 3).map((budget, index) => (
+            {budgets.slice(0, 3).map((budget, index) => (
               <div 
                 key={budget.category} 
                 className="animate-slide-in-right"
@@ -115,7 +137,7 @@ export default function Dashboard() {
               >
                 <BudgetProgressBar
                   category={budget.category}
-                  spent={budget.spent}
+                  spent={budget.currentSpent}
                   limit={budget.limit}
                 />
               </div>
