@@ -43,40 +43,40 @@ router.get('/goals', verifyAuth, async (req, res) => {
 // Create a new goal
 router.post('/goals', verifyAuth, async (req, res) => {
   try {
-    console.log('Creating goal with user:', req.user);
-    console.log('Goal data:', req.body);
-    
-    const { name, targetAmount, deadline, category, priority } = req.body;
-    
-    if (!name || !targetAmount) {
-      return res.status(400).json({ error: 'Name and target amount are required' });
-    }
-
-    const newGoal = {
+    const goal = {
       userId: req.user.uid,
-      name,
-      targetAmount: Number(targetAmount),
-      currentAmount: 0,
-      deadline: deadline ? new Date(deadline) : null,
-      category: category || 'other',
-      priority: priority || 'medium',
-      isCompleted: false,
+      title: req.body.title,
+      targetAmount: parseFloat(req.body.targetAmount),
+      currentAmount: parseFloat(req.body.currentAmount) || 0,
+      deadline: new Date(req.body.deadline),
+      category: req.body.category,
       createdAt: new Date(),
-      updatedAt: new Date()
+      isCompleted: false
     };
 
-    const docRef = await db.collection('goals').add(newGoal);
-    
-    res.status(201).json({ 
-      id: docRef.id, 
-      ...newGoal,
-      createdAt: newGoal.createdAt.toISOString(),
-      updatedAt: newGoal.updatedAt.toISOString(),
-      deadline: newGoal.deadline ? newGoal.deadline.toISOString() : null
-    });
+    const docRef = await db.collection('goals').add(goal);
+    res.status(201).json({ id: docRef.id, ...goal });
   } catch (error) {
-    console.error('Error creating goal:', error);
-    res.status(500).json({ error: 'Failed to create goal', details: error.message });
+    console.error('Goal creation error:', error);
+    res.status(500).json({ error: 'Failed to create goal' });
+  }
+});
+
+// Update goal progress
+router.patch('/goals/:id', verifyAuth, async (req, res) => {
+  try {
+    const docRef = db.collection('goals').doc(req.params.id);
+    const updates = {
+      currentAmount: parseFloat(req.body.amount),
+      updatedAt: new Date(),
+      isCompleted: req.body.isCompleted || false
+    };
+    
+    await docRef.update(updates);
+    res.json({ success: true, ...updates });
+  } catch (error) {
+    console.error('Goal update error:', error);
+    res.status(500).json({ error: 'Failed to update goal' });
   }
 });
 

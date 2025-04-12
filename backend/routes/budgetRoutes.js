@@ -1,17 +1,16 @@
 const express = require('express');
 const router = express.Router();
-const { db } = require('../firebase'); // Changed from '../config/firebase'
+const { db } = require('../firebase');
 const verifyAuth = require('../middleware/auth');
 
+// Create budget
 router.post('/budgets', verifyAuth, async (req, res) => {
   try {
     const { category, amount, period } = req.body;
-    const userId = req.user.uid;
-
     const budget = {
-      userId,
+      userId: req.user.uid,
       category,
-      amount,
+      amount: parseFloat(amount),
       period,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -20,21 +19,24 @@ router.post('/budgets', verifyAuth, async (req, res) => {
     const docRef = await db.collection('budgets').add(budget);
     res.status(201).json({ id: docRef.id, ...budget });
   } catch (error) {
-    console.error('Error creating budget:', error);
+    console.error('Budget creation error:', error);
     res.status(500).json({ error: 'Failed to create budget' });
   }
 });
 
+// Get budgets
 router.get('/budgets', verifyAuth, async (req, res) => {
   try {
-    const userId = req.user.uid;
     const snapshot = await db.collection('budgets')
-      .where('userId', '==', userId)
+      .where('userId', '==', req.user.uid)
+      .orderBy('createdAt', 'desc')
       .get();
 
     const budgets = snapshot.docs.map(doc => ({
       id: doc.id,
-      ...doc.data()
+      ...doc.data(),
+      createdAt: doc.data().createdAt.toDate(),
+      updatedAt: doc.data().updatedAt.toDate()
     }));
 
     res.json(budgets);

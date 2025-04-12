@@ -1,4 +1,4 @@
-const admin = require('firebase-admin');
+const { auth } = require('../firebase');
 
 const verifyAuth = async (req, res, next) => {
   try {
@@ -8,10 +8,10 @@ const verifyAuth = async (req, res, next) => {
       return res.status(401).json({ error: 'No token provided' });
     }
 
-    // Add this log to debug
-    console.log('Verifying token:', token);
-
-    const decodedToken = await admin.auth().verifyIdToken(token);
+    // Add debug logging
+    console.log('Received token:', token);
+    
+    const decodedToken = await auth.verifyIdToken(token);
     req.user = {
       uid: decodedToken.uid,
       email: decodedToken.email

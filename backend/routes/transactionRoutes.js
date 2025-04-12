@@ -28,25 +28,34 @@ router.post('/transactions', verifyAuth, async (req, res) => {
   }
 });
 
+// Get all transactions
 router.get('/transactions', verifyAuth, async (req, res) => {
   try {
-    const userId = req.user.uid;
     const snapshot = await db.collection('transactions')
-      .where('userId', '==', userId)
+      .where('userId', '==', req.user.uid)
       .orderBy('date', 'desc')
       .get();
 
     const transactions = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
-      date: doc.data().date.toDate(),
-      createdAt: doc.data().createdAt.toDate()
+      date: doc.data().date.toDate().toISOString()
     }));
-
+    
     res.json(transactions);
   } catch (error) {
-    console.error('Error fetching transactions:', error);
-    res.status(500).json({ error: 'Failed to fetch transactions' });
+    console.error('Get transactions error:', error);
+    res.status(500).json({ error: 'Failed to get transactions' });
+  }
+});
+
+router.delete('/transactions/:id', verifyAuth, async (req, res) => {
+  try {
+    await db.collection('transactions').doc(req.params.id).delete();
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete transaction error:', error);
+    res.status(500).json({ error: 'Failed to delete transaction' });
   }
 });
 

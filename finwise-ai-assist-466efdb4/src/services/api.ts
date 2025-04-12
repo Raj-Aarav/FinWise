@@ -29,6 +29,19 @@ axiosInstance.interceptors.request.use(
 );
 
 // Export the complete API object
+// Add error handling utility at the top
+function handleApiError(error: unknown): never {
+  if (axios.isAxiosError(error)) {
+    const message = error.response?.data?.error || error.message;
+    console.error('API Error:', message);
+    throw new Error(message);
+  }
+  console.error('Unexpected error:', error);
+  throw new Error('An unexpected error occurred');
+}
+
+// Update the API methods to use the handler
+// Add this to the api object
 export const api = {
   // Auth methods
   login: async (email: string, password: string): Promise<User> => {
@@ -85,7 +98,12 @@ export const api = {
 
   addTransaction: async (transaction: Partial<Transaction>): Promise<Transaction> => {
     try {
-      const response = await axiosInstance.post('/user/transactions', transaction);
+      const response = await axiosInstance.post('/user/transactions', {
+        ...transaction,
+        amount: parseFloat(transaction.amount as unknown as string), // Ensure numeric conversion
+        date: new Date(transaction.date!).toISOString()             // Proper date formatting
+      });
+      
       return {
         ...response.data,
         date: new Date(response.data.date),
@@ -111,35 +129,22 @@ export const api = {
     try {
       const response = await axiosInstance.post('/user/budgets', budget);
       return response.data;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to create budget');
-    }
-  },
-
-  // Goals methods
-  getSavingsGoals: async (): Promise<SavingsGoal[]> => {
-    try {
-      const response = await axiosInstance.get('/user/goals');
-      return response.data;
     } catch (error) {
-      console.error('Failed to fetch goals:', error);
-      return [];
+      return handleApiError(error);
     }
   },
 
   createSavingsGoal: async (goal: Partial<SavingsGoal>): Promise<SavingsGoal> => {
     try {
       const response = await axiosInstance.post('/user/goals', goal);
-      // Transform dates from ISO strings to Date objects
       return {
         ...response.data,
         createdAt: new Date(response.data.createdAt),
         updatedAt: new Date(response.data.updatedAt),
         deadline: response.data.deadline ? new Date(response.data.deadline) : undefined
       };
-    } catch (error: any) {
-      console.error('API Error:', error.response?.data || error.message);
-      throw new Error(error.response?.data?.error || 'Failed to create goal');
+    } catch (error) {
+      return handleApiError(error);
     }
   },
 
@@ -203,5 +208,14 @@ export const api = {
     }
   },
 
-  
+  // Goals methods
+  getSavingsGoals: async (): Promise<SavingsGoal[]> => {
+    try {
+      const response = await axiosInstance.get('/user/goals');
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch goals:', error);
+      return [];
+    }
+  },
 };
